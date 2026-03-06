@@ -5,8 +5,17 @@ const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const query = req.query.query;
-    const pagetoken = req.query.pagetoken;
+    let query, pagetoken;
+
+    // Support both GET query and POST JSON body just in case
+    if (req.method === 'POST') {
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      query = body?.query;
+      pagetoken = body?.pagetoken;
+    } else {
+      query = req.query.query;
+      pagetoken = req.query.pagetoken;
+    }
 
     if (!query && !pagetoken) {
       return res.status(400).json({ error: "Query or pagetoken parameter is required" });
@@ -14,10 +23,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?key=${GOOGLE_MAPS_API_KEY}`;
 
-    // According to Google API docs, pagetoken should be used ALONE without query.
     if (pagetoken) {
       url += `&pagetoken=${encodeURIComponent(pagetoken as string)}`;
-    } else if (query) {
+    }
+    if (query) {
       url += `&query=${encodeURIComponent(query as string)}`;
     }
 

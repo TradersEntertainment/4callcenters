@@ -197,14 +197,18 @@ export async function searchBusinesses(
     const maxAttempts = pageToken ? 3 : 1; // Retry only if using pagetoken
 
     while (attempts < maxAttempts) {
-      let url = `/api/places/textsearch?`;
+      let payload: any = { query: finalQuery };
       if (pageToken) {
-        url += `pagetoken=${encodeURIComponent(pageToken)}`;
-      } else {
-        url += `query=${encodeURIComponent(finalQuery)}`;
+        payload.pagetoken = pageToken;
       }
 
-      const response = await fetch(url);
+      const response = await fetch('/api/places/textsearch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
       data = await response.json();
 
       if (data.status === 'INVALID_REQUEST' && pageToken) {
