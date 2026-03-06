@@ -1,4 +1,4 @@
-const API_KEY = "AIzaSyB6edTtlIIHBDkQ1JsphrGoejOVNJ4pbiI";
+const API_KEY = process.env.GOOGLE_MAPS_API_KEY || "";
 
 async function testGooglePlacesNew() {
   const url = `https://places.googleapis.com/v1/places:searchText`;
