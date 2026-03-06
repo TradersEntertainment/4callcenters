@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Building2, Phone, Loader2, AlertCircle, Mail, Globe, Users, ExternalLink, Smartphone, Instagram, Star, MessageSquare, Lightbulb, Menu, X, Filter } from 'lucide-react';
+import { Search, MapPin, Building2, Phone, Loader2, AlertCircle, Mail, Globe, Users, ExternalLink, Smartphone, Instagram, Star, MessageSquare, Lightbulb, Menu, X, Filter, EyeOff, StickyNote, Save, Bell, Clock } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -75,7 +75,63 @@ export default function App() {
   const [pitchLoading, setPitchLoading] = useState<string | null>(null);
   const [pitchModal, setPitchModal] = useState<{ isOpen: boolean; content: string; businessName: string } | null>(null);
 
+  // Local Storage State
+  const [hiddenBusinesses, setHiddenBusinesses] = useState<string[]>(() => {
+    const saved = localStorage.getItem('hiddenBusinesses');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [notes, setNotes] = useState<Record<string, string>>(() => {
+    const saved = localStorage.getItem('businessNotes');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const [reminders, setReminders] = useState<Record<string, number>>(() => {
+    const saved = localStorage.getItem('businessReminders');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const [noteModal, setNoteModal] = useState<{ isOpen: boolean; businessName: string; initialNote: string } | null>(null);
+  const [reminderModal, setReminderModal] = useState<{ isOpen: boolean; businessName: string } | null>(null);
+
+  // Sync to local storage
+  useEffect(() => {
+    localStorage.setItem('hiddenBusinesses', JSON.stringify(hiddenBusinesses));
+  }, [hiddenBusinesses]);
+
+  useEffect(() => {
+    localStorage.setItem('businessNotes', JSON.stringify(notes));
+  }, [notes]);
+
+  useEffect(() => {
+    localStorage.setItem('businessReminders', JSON.stringify(reminders));
+  }, [reminders]);
+
+  const handleHideBusiness = (name: string) => {
+    setHiddenBusinesses(prev => [...prev, name]);
+  };
+
+  const handleSaveNote = (name: string, text: string) => {
+    setNotes(prev => ({ ...prev, [name]: text }));
+    setNoteModal(null);
+  };
+
+  const handleSetReminder = (name: string, minutes: number) => {
+    const timestamp = Date.now() + minutes * 60 * 1000;
+    setReminders(prev => ({ ...prev, [name]: timestamp }));
+    setReminderModal(null);
+  };
+
+  const handleRemoveReminder = (name: string) => {
+    setReminders(prev => {
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  };
+
   const filteredBusinesses = businesses.filter(b => {
+    if (hiddenBusinesses.includes(b.name)) return false;
     let matches = true;
 
     // Mobile Filter
@@ -255,6 +311,100 @@ export default function App() {
                 className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm shadow-lg shadow-blue-600/20"
               >
                 Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Note Modal */}
+      {noteModal && noteModal.isOpen && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-100 p-2 rounded-lg text-blue-700">
+                  <StickyNote className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Müşteri Notu</h3>
+                  <p className="text-xs text-gray-500 font-medium">{noteModal.businessName}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setNoteModal(null)}
+                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-5 bg-white">
+              <textarea
+                id="businessNote"
+                defaultValue={noteModal.initialNote}
+                className="w-full h-32 p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-sm text-gray-700"
+                placeholder="Bu firma ile yaptığınız görüşmelerin özetini veya önemli notlarınızı buraya yazın..."
+              ></textarea>
+            </div>
+            <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+              <button
+                onClick={() => setNoteModal(null)}
+                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors text-sm"
+              >
+                İptal
+              </button>
+              <button
+                onClick={() => {
+                  const text = (document.getElementById('businessNote') as HTMLTextAreaElement).value;
+                  handleSaveNote(noteModal.businessName, text);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm shadow-md shadow-blue-600/20 flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                Kaydet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reminder Modal */}
+      {reminderModal && reminderModal.isOpen && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <div className="flex items-center gap-3">
+                <div className="bg-purple-100 p-2 rounded-lg text-purple-700">
+                  <Bell className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Hatırlatıcı Kur</h3>
+                  <p className="text-xs text-gray-500 font-medium">{reminderModal.businessName}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setReminderModal(null)}
+                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-5 bg-white space-y-3">
+              <p className="text-sm text-gray-600 font-medium mb-4">Bu firmayı tekrar ne zaman aramak veya ziyaret etmek istersiniz?</p>
+
+              <button onClick={() => handleSetReminder(reminderModal.businessName, 30)} className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors text-left group">
+                <div className="bg-gray-100 p-2 rounded-lg group-hover:bg-purple-100 group-hover:text-purple-600 transition-colors"><Clock className="w-4 h-4" /></div>
+                <div><div className="font-bold text-gray-900">30 Dakika Sonra</div><div className="text-xs text-gray-500">Kısa bir mola sonrası</div></div>
+              </button>
+
+              <button onClick={() => handleSetReminder(reminderModal.businessName, 60)} className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors text-left group">
+                <div className="bg-gray-100 p-2 rounded-lg group-hover:bg-purple-100 group-hover:text-purple-600 transition-colors"><Clock className="w-4 h-4" /></div>
+                <div><div className="font-bold text-gray-900">1 Saat Sonra</div><div className="text-xs text-gray-500">Öğle arası veya toplantı bitişi</div></div>
+              </button>
+
+              <button onClick={() => handleSetReminder(reminderModal.businessName, 60 * 24)} className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-colors text-left group">
+                <div className="bg-gray-100 p-2 rounded-lg group-hover:bg-purple-100 group-hover:text-purple-600 transition-colors"><Clock className="w-4 h-4" /></div>
+                <div><div className="font-bold text-gray-900">Yarın Aynı Saatte</div><div className="text-xs text-gray-500">Bugün müsait değillerdi</div></div>
               </button>
             </div>
           </div>
@@ -689,11 +839,43 @@ export default function App() {
                     <div>
                       <div className="flex justify-between items-start gap-2">
                         <h4 className="font-bold text-gray-900 text-lg leading-tight truncate">{business.name}</h4>
-                        <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-1 rounded-full whitespace-nowrap flex-shrink-0">
-                          {business.establishmentYear ? `${business.establishmentYear}'den beri` : 'Köklü Firma'}
-                        </span>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => handleHideBusiness(business.name)}
+                            title="Listeden Kaldır"
+                            className="text-gray-400 hover:text-red-500 p-1.5 hover:bg-red-50 rounded-full transition-colors"
+                          >
+                            <EyeOff className="w-4 h-4" />
+                          </button>
+                          <span className="text-[10px] text-gray-500 font-medium bg-gray-100 px-2 py-1.5 rounded-full whitespace-nowrap hidden sm:block">
+                            {business.establishmentYear ? `${business.establishmentYear}'den beri` : 'Köklü Firma'}
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-sm text-blue-600 font-medium mt-1 truncate">{business.sector}</div>
+                      <div className="flex justify-between items-center mt-1">
+                        <div className="text-sm text-blue-600 font-medium truncate">{business.sector}</div>
+                        <div className="flex gap-1.5 flex-wrap justify-end">
+                          {notes[business.name] && (
+                            <div className="flex items-center gap-1 text-[10px] bg-yellow-100 text-yellow-800 px-2 py-1 rounded-md font-bold cursor-pointer hover:bg-yellow-200" onClick={() => setNoteModal({ isOpen: true, businessName: business.name, initialNote: notes[business.name] })}>
+                              <StickyNote className="w-3 h-3" />
+                              Not var
+                            </div>
+                          )}
+                          {reminders[business.name] && (
+                            <div
+                              onClick={() => {
+                                if (confirm('Hatırlatıcıyı silmek istiyor musunuz?')) handleRemoveReminder(business.name);
+                              }}
+                              className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-md font-bold cursor-pointer transition-colors ${Date.now() > reminders[business.name]
+                                  ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                  : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                }`}>
+                              <Bell className={`w-3 h-3 ${Date.now() > reminders[business.name] ? 'animate-bounce' : ''}`} />
+                              {Date.now() > reminders[business.name] ? 'Zamanı Geldi!' : 'Hatırlatıcı'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="space-y-3 mt-3">
@@ -716,11 +898,11 @@ export default function App() {
                         ))}
                       </div>
 
-                      <div className="flex gap-2 pt-3 border-t border-gray-100 mt-auto">
+                      <div className="flex gap-2 pt-3 border-t border-gray-100 mt-auto flex-wrap sm:flex-nowrap">
                         <button
                           onClick={() => handleGeneratePitch(business)}
                           disabled={pitchLoading === business.name}
-                          className="flex-1 bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold py-2.5 px-3 rounded-lg flex items-center justify-center transition-all shadow-md shadow-gray-900/10 whitespace-nowrap gap-2 disabled:opacity-70"
+                          className="flex-1 min-w-[120px] bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold py-2 px-3 rounded-lg flex items-center justify-center transition-all shadow-md shadow-gray-900/10 whitespace-nowrap gap-1.5 disabled:opacity-70"
                         >
                           {pitchLoading === business.name ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -730,14 +912,30 @@ export default function App() {
                           Satış Metni
                         </button>
 
+                        <button
+                          onClick={() => setNoteModal({ isOpen: true, businessName: business.name, initialNote: notes[business.name] || '' })}
+                          className="flex-1 min-w-[80px] bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 text-sm font-bold py-2 px-3 rounded-lg flex items-center justify-center transition-all whitespace-nowrap gap-1.5"
+                        >
+                          <StickyNote className="w-4 h-4" />
+                          Not Al
+                        </button>
+
+                        <button
+                          onClick={() => setReminderModal({ isOpen: true, businessName: business.name })}
+                          className="flex-1 min-w-[90px] bg-purple-50 border border-purple-200 hover:bg-purple-100 text-purple-700 text-sm font-bold py-2 px-3 rounded-lg flex items-center justify-center transition-all whitespace-nowrap gap-1.5"
+                        >
+                          <Bell className="w-4 h-4" />
+                          Hatırlat
+                        </button>
+
                         <a
                           href={`https://www.google.com/search?q=${encodeURIComponent(business.name + ' ' + city + ' instagram')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-sm font-bold py-2.5 px-3 rounded-lg flex items-center justify-center transition-all shadow-md shadow-pink-500/20 whitespace-nowrap"
+                          className="w-[42px] flex-shrink-0 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-sm font-bold py-2 rounded-lg flex items-center justify-center transition-all shadow-md shadow-pink-500/20"
+                          title="Instagram Profilini Çıkar"
                         >
-                          <Instagram className="w-4 h-4 mr-2" />
-                          Instagram
+                          <Instagram className="w-4 h-4" />
                         </a>
 
                         {business.mapsUri && (
@@ -745,10 +943,10 @@ export default function App() {
                             href={business.mapsUri}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium py-2.5 px-3 rounded-lg flex items-center justify-center transition-colors whitespace-nowrap"
+                            className="w-[42px] flex-shrink-0 bg-white border border-gray-200 hover:bg-gray-50 text-blue-500 py-2 rounded-lg flex items-center justify-center transition-colors shadow-sm"
+                            title="Haritada Ara"
                           >
-                            <MapPin className="w-4 h-4 mr-2 text-blue-500" />
-                            Harita
+                            <MapPin className="w-4 h-4" />
                           </a>
                         )}
                       </div>

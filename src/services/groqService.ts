@@ -1,15 +1,12 @@
-import Groq from 'groq-sdk';
+import { GoogleGenAI } from "@google/genai";
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-  dangerouslyAllowBrowser: true // Note: In production, this should be handled server-side
-});
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 export async function generateSalesPitch(businessName: string, sector: string, city: string): Promise<string> {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    console.error("GROQ_API_KEY is missing!");
+    console.error("GEMINI_API_KEY is missing!");
     return "API Anahtarı eksik. Lütfen Vercel ayarlarınızı kontrol edin.";
   }
 
@@ -38,33 +35,17 @@ export async function generateSalesPitch(businessName: string, sector: string, c
       - Değer Önerisi (Neden katılmalılar?)
       - Fiyat & Kapanış (Net teklif ve eylem çağrısı)
       
-      Lütfen Türkçe yanıt ver.
+      Lütfen Türkçe yanıt ver. Metin Markdown formatında olsun (örneğin başlıklar için ##, bold yerler için ** vs. kullan).
     `;
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        messages: [{ role: "user", content: prompt }],
-        model: "mixtral-8x7b-32768",
-        temperature: 0.7,
-        max_tokens: 1024,
-      })
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("Groq API Response Error:", data);
-      throw new Error(data.error?.message || "Bilinmeyen API Hatası");
-    }
-
-    return data.choices?.[0]?.message?.content || "Satış metni oluşturulamadı.";
+    return response.text || "Satış metni oluşturulamadı.";
   } catch (error) {
-    console.error("Groq Fetch Error:", error);
+    console.error("Gemini Fetch Error:", error);
     return "Yapay zeka şu anda meşgul veya API bağlantısı başarısız, lütfen daha sonra tekrar deneyin.";
   }
 }
