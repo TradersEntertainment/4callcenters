@@ -13,11 +13,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?key=${GOOGLE_MAPS_API_KEY}`;
-    if (query) {
-      url += `&query=${encodeURIComponent(query as string)}`;
-    }
+
+    // According to Google API docs, pagetoken should be used ALONE without query.
     if (pagetoken) {
       url += `&pagetoken=${pagetoken}`;
+    } else if (query) {
+      url += `&query=${encodeURIComponent(query as string)}`;
     }
 
     const response = await fetch(url);
