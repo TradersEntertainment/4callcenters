@@ -213,7 +213,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden font-sans">
+    <div className="flex flex-col md:flex-row h-screen bg-gray-100 overflow-hidden font-sans">
       {/* Pitch Modal */}
       {pitchModal && pitchModal.isOpen && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -262,7 +262,7 @@ export default function App() {
       )}
 
       {/* Sidebar */}
-      <div className="w-[400px] flex-shrink-0 bg-white shadow-xl z-20 flex flex-col h-full border-r border-gray-200">
+      <div className={`w-full md:w-[400px] flex-shrink-0 bg-white shadow-xl flex flex-col transition-all duration-300 ${showResultsPanel ? 'h-[60vh] md:h-full z-20' : 'h-full md:h-full z-20'} border-r border-gray-200`}>
         <div className="p-6 border-b border-gray-100 bg-white">
           <div className="flex items-center gap-3 mb-1">
             <div className="bg-blue-600 p-2 rounded-lg shadow-lg shadow-blue-600/20">
@@ -645,7 +645,7 @@ export default function App() {
 
         {/* Floating Results Panel (Bottom Right) */}
         {businesses.length > 0 && showResultsPanel && (
-          <div className="absolute top-0 right-0 z-[1000] w-1/2 h-full bg-white shadow-2xl border-l border-gray-200 flex flex-col animate-in slide-in-from-right-10 fade-in duration-300">
+          <div className="absolute top-0 right-0 z-[1000] w-full md:w-1/2 h-full bg-white shadow-2xl border-l border-gray-200 flex flex-col animate-in slide-in-from-right-10 fade-in duration-300">
             <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
               <h3 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
                 <div className="bg-green-100 text-green-700 px-2.5 py-0.5 rounded-md text-sm font-extrabold">
