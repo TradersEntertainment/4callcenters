@@ -199,7 +199,7 @@ export async function searchBusinesses(
     while (attempts < maxAttempts) {
       let url = `/api/places/textsearch?`;
       if (pageToken) {
-        url += `pagetoken=${pageToken}`;
+        url += `pagetoken=${encodeURIComponent(pageToken)}`;
       } else {
         url += `query=${encodeURIComponent(finalQuery)}`;
       }
