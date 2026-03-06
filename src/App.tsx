@@ -63,6 +63,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [nextPageToken, setNextPageToken] = useState<string>('');
   const [error, setError] = useState('');
   const [onlyMobile, setOnlyMobile] = useState(false);
   const [requireInstagram, setRequireInstagram] = useState(false);
@@ -137,36 +138,54 @@ export default function App() {
 
     setError('');
     if (isLoadMore) {
+      if (!nextPageToken) {
+        setLoadingMore(false);
+        return; // No more results
+      }
       setLoadingMore(true);
     } else {
       setLoading(true);
       setBusinesses([]);
+      setNextPageToken('');
       setShowResultsPanel(true);
     }
 
     try {
       const excludeNames = isLoadMore ? businesses.map(b => b.name) : [];
-      const newBusinesses = await searchBusinesses(
-        city, 
-        selectedSectors, 
-        excludeNames, 
+      const response = await searchBusinesses(
+        city,
+        selectedSectors,
+        excludeNames,
         requireInstagram,
         creativeFilter,
-        country
+        country,
+        isLoadMore ? nextPageToken : ''
       );
-      
+
+      const newBusinesses = response.businesses;
+      setNextPageToken(response.nextPageToken);
+
       if (onlyMobile) {
-        const mobileBusinesses = newBusinesses.filter(b => 
+        const mobileBusinesses = newBusinesses.filter(b =>
           b.phones.some(p => p.startsWith('05'))
         );
         if (isLoadMore) {
-          setBusinesses(prev => [...prev, ...mobileBusinesses]);
+          setBusinesses(prev => {
+            // Filter duplicates manually just in case
+            const existingNames = new Set(prev.map(b => b.name));
+            const uniqueNew = mobileBusinesses.filter(b => !existingNames.has(b.name));
+            return [...prev, ...uniqueNew];
+          });
         } else {
           setBusinesses(mobileBusinesses);
         }
       } else {
         if (isLoadMore) {
-          setBusinesses(prev => [...prev, ...newBusinesses]);
+          setBusinesses(prev => {
+            const existingNames = new Set(prev.map(b => b.name));
+            const uniqueNew = newBusinesses.filter(b => !existingNames.has(b.name));
+            return [...prev, ...uniqueNew];
+          });
         } else {
           setBusinesses(newBusinesses);
         }
@@ -209,7 +228,7 @@ export default function App() {
                   <p className="text-sm text-gray-500 font-medium">{pitchModal.businessName}</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setPitchModal(null)}
                 className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-200 rounded-full transition-colors"
               >
@@ -348,11 +367,10 @@ export default function App() {
                             setSelectedSectors([...selectedSectors, s]);
                           }
                         }}
-                        className={`px-2 py-2 rounded-lg text-xs font-medium transition-all border text-left truncate ${
-                          selectedSectors.includes(s)
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-200 ring-offset-1'
-                            : 'bg-white text-gray-600 border-gray-100 hover:border-blue-200 hover:bg-blue-50/50 hover:text-blue-700'
-                        }`}
+                        className={`px-2 py-2 rounded-lg text-xs font-medium transition-all border text-left truncate ${selectedSectors.includes(s)
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-200 ring-offset-1'
+                          : 'bg-white text-gray-600 border-gray-100 hover:border-blue-200 hover:bg-blue-50/50 hover:text-blue-700'
+                          }`}
                         title={s}
                       >
                         {s}
@@ -382,7 +400,7 @@ export default function App() {
               </div>
               <span className="text-sm text-gray-700 group-hover:text-gray-900 font-medium">Sadece Cep Telefonu</span>
             </label>
-            
+
             <label className="flex items-center gap-3 cursor-pointer group">
               <div className="relative flex items-center">
                 <input
@@ -493,7 +511,7 @@ export default function App() {
               {error}
             </div>
           )}
-          
+
           <button
             onClick={() => handleSearch(false)}
             disabled={loading}
@@ -516,9 +534,9 @@ export default function App() {
 
       {/* Main Content (Map) */}
       <div className="flex-1 relative bg-gray-200">
-        <MapContainer 
-          center={[39.9207, 32.8541]} 
-          zoom={6} 
+        <MapContainer
+          center={[39.9207, 32.8541]}
+          zoom={6}
           style={{ height: '100%', width: '100%' }}
           zoomControl={false}
         >
@@ -529,8 +547,8 @@ export default function App() {
           <MapUpdater businesses={filteredBusinesses} />
           {filteredBusinesses.map((business, index) => (
             business.latitude && business.longitude && (
-              <Marker 
-                key={index} 
+              <Marker
+                key={index}
                 position={[business.latitude, business.longitude]}
               >
                 <Popup className="custom-popup">
@@ -544,13 +562,13 @@ export default function App() {
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="space-y-2 mb-3">
                       <div className="flex items-center text-sm text-gray-600">
                         <MapPin className="w-3.5 h-3.5 mr-2 text-gray-400 flex-shrink-0" />
                         <span className="truncate">{business.address}</span>
                       </div>
-                      
+
                       {business.phones.map((phone, i) => (
                         <div key={i} className="flex items-center text-sm font-medium text-gray-900 bg-gray-50 p-1.5 rounded border border-gray-100">
                           <Phone className="w-3.5 h-3.5 mr-2 text-green-600 flex-shrink-0" />
@@ -559,9 +577,9 @@ export default function App() {
                       ))}
 
                       {business.instagram !== 'Bilinmiyor' && (
-                        <a 
-                          href={business.instagram} 
-                          target="_blank" 
+                        <a
+                          href={business.instagram}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center text-sm text-pink-600 hover:text-pink-700 hover:underline"
                         >
@@ -569,7 +587,7 @@ export default function App() {
                           Instagram Profili
                         </a>
                       )}
-                      
+
                       <button
                         onClick={() => handleGeneratePitch(business)}
                         disabled={pitchLoading === business.name}
@@ -596,7 +614,7 @@ export default function App() {
 
                     <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
                       {business.mapsUri && (
-                        <a 
+                        <a
                           href={business.mapsUri}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -607,7 +625,7 @@ export default function App() {
                         </a>
                       )}
                       {business.website !== 'Bilinmiyor' && (
-                        <a 
+                        <a
                           href={business.website.startsWith('http') ? business.website : `https://${business.website}`}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -635,7 +653,7 @@ export default function App() {
                 </div>
                 Bulunan Firmalar
               </h3>
-              <button 
+              <button
                 onClick={() => setShowResultsPanel(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-200 rounded-full"
               >
@@ -648,9 +666,9 @@ export default function App() {
                   {/* Image Section */}
                   <div className="w-full sm:w-32 h-32 sm:h-auto flex-shrink-0 bg-gray-100 relative overflow-hidden">
                     {business.imageUrl ? (
-                      <img 
-                        src={business.imageUrl} 
-                        alt={business.name} 
+                      <img
+                        src={business.imageUrl}
+                        alt={business.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 absolute inset-0"
                       />
                     ) : (
@@ -687,7 +705,7 @@ export default function App() {
                       {/* Phone Numbers List */}
                       <div className="flex flex-wrap gap-2">
                         {business.phones.map((phone, pIdx) => (
-                          <a 
+                          <a
                             key={pIdx}
                             href={`tel:${phone}`}
                             className="flex items-center gap-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold py-1.5 px-3 rounded-lg transition-colors border border-green-200 whitespace-nowrap"
@@ -712,7 +730,7 @@ export default function App() {
                           Satış Metni
                         </button>
 
-                        <a 
+                        <a
                           href={`https://www.google.com/search?q=${encodeURIComponent(business.name + ' ' + city + ' instagram')}`}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -721,9 +739,9 @@ export default function App() {
                           <Instagram className="w-4 h-4 mr-2" />
                           Instagram
                         </a>
-                        
+
                         {business.mapsUri && (
-                          <a 
+                          <a
                             href={business.mapsUri}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -738,14 +756,16 @@ export default function App() {
                   </div>
                 </div>
               ))}
-              
-              <button
-                onClick={() => handleSearch(true)}
-                disabled={loadingMore}
-                className="w-full mt-4 py-4 bg-gray-900 hover:bg-gray-800 text-white text-base font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-gray-900/10 transform active:scale-[0.99]"
-              >
-                {loadingMore ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Daha Fazla Firma Yükle'}
-              </button>
+
+              {nextPageToken && (
+                <button
+                  onClick={() => handleSearch(true)}
+                  disabled={loadingMore}
+                  className="w-full mt-4 py-4 bg-gray-900 hover:bg-gray-800 text-white text-base font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-gray-900/10 transform active:scale-[0.99]"
+                >
+                  {loadingMore ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Daha Fazla Firma Yükle'}
+                </button>
+              )}
             </div>
           </div>
         )}

@@ -137,14 +137,14 @@ function getSectorImage(sector: string, businessName: string): string {
   // Find matching key or return default
   const key = Object.keys(SECTOR_IMAGES).find(k => sector.includes(k)) || 'Genel';
   const images = SECTOR_IMAGES[key] || SECTOR_IMAGES['Genel'];
-  
+
   // Use business name to deterministically pick an image
   // This ensures the same business always gets the same image, but different businesses get different images
   let hash = 0;
   for (let i = 0; i < businessName.length; i++) {
     hash = businessName.charCodeAt(i) + ((hash << 5) - hash);
   }
-  
+
   const index = Math.abs(hash) % images.length;
   return images[index];
 }
@@ -162,18 +162,24 @@ async function getPlaceDetails(placeId: string): Promise<any> {
   }
 }
 
+export interface SearchResponse {
+  businesses: Business[];
+  nextPageToken: string;
+}
+
 export async function searchBusinesses(
-  city: string, 
-  sectors: string[], 
-  excludeNames: string[] = [], 
+  city: string,
+  sectors: string[],
+  excludeNames: string[] = [],
   requireInstagram: boolean = false,
   creativeFilter: CreativeFilter = 'none',
-  country: string = 'Türkiye'
-): Promise<Business[]> {
+  country: string = 'Türkiye',
+  pageToken: string = ''
+): Promise<SearchResponse> {
   // Construct the search query
   const sectorQuery = sectors.join(' OR ');
   let locationQuery = "";
-  
+
   if (country === 'Kıbrıs') {
     locationQuery = city === 'Tüm KKTC' ? "North Cyprus" : `${city}, North Cyprus`;
   } else {
@@ -181,12 +187,17 @@ export async function searchBusinesses(
   }
 
   const query = `${sectorQuery} in ${locationQuery}`;
-  
+
   let finalQuery = query;
   if (creativeFilter === 'multi-branch') finalQuery += " chain";
 
   try {
-    const url = `/api/places/textsearch?query=${encodeURIComponent(finalQuery)}`;
+    let url = `/api/places/textsearch?`;
+    if (pageToken) {
+      url += `pagetoken=${pageToken}`;
+    } else {
+      url += `query=${encodeURIComponent(finalQuery)}`;
+    }
     const response = await fetch(url);
     const data = await response.json();
 
@@ -195,7 +206,7 @@ export async function searchBusinesses(
     }
 
     const results = data.results || [];
-    
+
     // Filter and map results
     const topResults = results.slice(0, 8);
 
@@ -209,8 +220,8 @@ export async function searchBusinesses(
         const photoRef = place.photos[0].photo_reference;
         imageUrl = `/api/places/photo?maxwidth=400&photo_reference=${photoRef}`;
       } else {
-          // Fallback to sector image if no photo in Google Maps
-          imageUrl = getSectorImage(sectors[0] || "Genel", place.name);
+        // Fallback to sector image if no photo in Google Maps
+        imageUrl = getSectorImage(sectors[0] || "Genel", place.name);
       }
 
       // Determine sector (use the first type or the searched sector)
@@ -238,7 +249,7 @@ export async function searchBusinesses(
       };
     }));
 
-    return businesses;
+    return { businesses, nextPageToken: data.next_page_token || '' };
 
   } catch (error) {
     console.error("Google Maps API Hatası:", error);

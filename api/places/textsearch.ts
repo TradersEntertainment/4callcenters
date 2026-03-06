@@ -6,15 +6,23 @@ const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const query = req.query.query;
-    if (!query) {
-      return res.status(400).json({ error: "Query parameter is required" });
+    const pagetoken = req.query.pagetoken;
+
+    if (!query && !pagetoken) {
+      return res.status(400).json({ error: "Query or pagetoken parameter is required" });
     }
-    
-    const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query as string)}&key=${GOOGLE_MAPS_API_KEY}`;
-    
+
+    let url = `https://maps.googleapis.com/maps/api/place/textsearch/json?key=${GOOGLE_MAPS_API_KEY}`;
+    if (query) {
+      url += `&query=${encodeURIComponent(query as string)}`;
+    }
+    if (pagetoken) {
+      url += `&pagetoken=${pagetoken}`;
+    }
+
     const response = await fetch(url);
     const data = await response.json();
-    
+
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', '*');
