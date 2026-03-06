@@ -192,86 +192,115 @@ export async function searchBusinesses(
   if (creativeFilter === 'multi-branch') finalQuery += " chain";
 
   try {
-    let data: any;
-    let attempts = 0;
-    const maxAttempts = pageToken ? 3 : 1; // Retry only if using pagetoken
+    let allResults: any[] = [];
+    let currentToken = pageToken;
+    let pagesFetched = 0;
+    const maxPages = pageToken ? 1 : 2; // Fetch 2 pages initially (40 items)
 
-    while (attempts < maxAttempts) {
-      let payload: any = { query: finalQuery };
-      if (pageToken) {
-        payload.pagetoken = pageToken;
-      }
+    while (pagesFetched < maxPages) {
+      let attempts = 0;
+      let success = false;
+      let data: any;
 
-      const response = await fetch('/api/places/textsearch', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-      data = await response.json();
-
-      if (data.status === 'INVALID_REQUEST' && pageToken) {
-        // Token might not be ready yet, wait and retry
-        attempts++;
-        if (attempts < maxAttempts) {
-          console.log(`Token not ready, waiting 2 seconds (attempt ${attempts}/${maxAttempts})...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          continue;
+      while (attempts < 4) { // Retry up to 4 times for INVALID_REQUEST
+        let payload: any = { query: finalQuery };
+        if (currentToken) {
+          payload.pagetoken = currentToken;
         }
-      }
-      break; // Exit loop if successful or max attempts reached
-    }
 
-    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      throw new Error(`Google Maps API Error: ${data.status} - ${data.error_message || 'Bilinmeyen hata'}`);
-    }
+        const response = await fetch('/api/places/textsearch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        data = await response.json();
 
-    const results = data.results || [];
+        if (data.status === 'INVALID_REQUEST' && currentToken) {
+          attempts++;
+          if (attempts < 4) {
+            console.log(`Token not ready, waiting 2 seconds (attempt ${attempts}/4)...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue;
+          }
+        }
 
-    // Filter and map results
-    const topResults = results.slice(0, 8);
+        if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+          throw new Error(`Google Maps API Error: ${data.status} - ${data.error_message || 'Bilinmeyen hata'}`);
+        }
 
-    const businesses: Business[] = await Promise.all(topResults.map(async (place: any) => {
-      // Fetch details for phone number and website
-      const details = await getPlaceDetails(place.place_id);
-
-      // Construct Photo URL using Proxy
-      let imageUrl = "";
-      if (place.photos && place.photos.length > 0) {
-        const photoRef = place.photos[0].photo_reference;
-        imageUrl = `/api/places/photo?maxwidth=400&photo_reference=${photoRef}`;
-      } else {
-        // Fallback to sector image if no photo in Google Maps
-        imageUrl = getSectorImage(sectors[0] || "Genel", place.name);
+        success = true;
+        break;
       }
 
-      // Determine sector (use the first type or the searched sector)
-      const sector = sectors[0] || "Genel"; // Simplified
+      if (!success) break;
 
-      return {
-        name: place.name,
-        phones: details.formatted_phone_number ? [details.formatted_phone_number] : [],
-        address: place.formatted_address,
-        email: "Bilinmiyor", // Not available in Places API
-        website: details.website || "Bilinmiyor",
-        instagram: "Bilinmiyor", // Not directly available, user can use "Insta Bul"
-        sector: sector,
-        employeeCount: "Bilinmiyor",
-        latitude: place.geometry.location.lat,
-        longitude: place.geometry.location.lng,
-        mapsUri: details.url || `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
-        rating: place.rating,
-        reviewCount: place.user_ratings_total,
-        adPotential: place.rating > 4.5 ? "Yüksek Müşteri Memnuniyeti" : "Geliştirilebilir Dijital Varlık",
-        isSimulated: false,
-        establishmentYear: "", // Not available
-        googleMapsDate: "", // Not available
-        imageUrl: imageUrl
-      };
-    }));
+      if (data.results && data.results.length > 0) {
+        allResults = allResults.concat(data.results);
+      }
 
-    return { businesses, nextPageToken: data.next_page_token || '' };
+      currentToken = data.next_page_token;
+      pagesFetched++;
+
+      if (!currentToken) break;
+
+      if (pagesFetched < maxPages) {
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Delay before next page
+      }
+    }
+
+    const businesses: Business[] = [];
+    const chunkSize = 5; // Process 5 details requests at a time to prevent rate limiting
+
+    // De-duplicate in case of overlap between pages
+    const uniqueIds = new Set();
+    const uniqueResults = allResults.filter(place => {
+      if (!place.place_id) return false;
+      if (uniqueIds.has(place.place_id)) return false;
+      uniqueIds.add(place.place_id);
+      return true;
+    });
+
+    for (let i = 0; i < uniqueResults.length; i += chunkSize) {
+      const chunk = uniqueResults.slice(i, i + chunkSize);
+      const chunkPromises = chunk.map(async (place: any) => {
+        try {
+          const details = await getPlaceDetails(place.place_id);
+          let imageUrl = "";
+          if (place.photos && place.photos.length > 0) {
+            const photoRef = place.photos[0].photo_reference;
+            imageUrl = `/api/places/photo?maxwidth=400&photo_reference=${photoRef}`;
+          } else {
+            imageUrl = getSectorImage(sectors[0] || "Genel", place.name);
+          }
+          const sector = sectors[0] || "Genel";
+          return {
+            name: place.name,
+            phones: details.formatted_phone_number ? [details.formatted_phone_number] : [],
+            address: place.formatted_address,
+            email: "Bilinmiyor",
+            website: details.website || "Bilinmiyor",
+            instagram: "Bilinmiyor",
+            sector: sector,
+            employeeCount: "Bilinmiyor",
+            latitude: place.geometry.location?.lat,
+            longitude: place.geometry.location?.lng,
+            mapsUri: details.url || `https://www.google.com/maps/place/?q=place_id:${place.place_id}`,
+            rating: place.rating,
+            reviewCount: place.user_ratings_total,
+            adPotential: place.rating > 4.5 ? "Yüksek Müşteri Memnuniyeti" : "Geliştirilebilir Dijital Varlık",
+            isSimulated: false,
+            establishmentYear: "",
+            googleMapsDate: "",
+            imageUrl: imageUrl
+          };
+        } catch (e) { console.error("Place details failed for " + place.name, e); return null; }
+      });
+
+      const chunkResults = await Promise.all(chunkPromises);
+      businesses.push(...(chunkResults.filter(b => b !== null) as Business[]));
+    }
+
+    return { businesses, nextPageToken: currentToken || '' };
 
   } catch (error: any) {
     console.error("Google Maps API Hatası:", error);
