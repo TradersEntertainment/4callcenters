@@ -269,8 +269,8 @@ export async function searchBusinesses(
 
     return { businesses, nextPageToken: data.next_page_token || '' };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Google Maps API Hatası:", error);
-    throw new Error("Veri çekilirken bir hata oluştu. Lütfen tekrar deneyin.");
+    throw new Error("Veri çekilirken bir hata oluştu. Detay: " + (error?.message || "Bilinmeyen hata"));
   }
 }
