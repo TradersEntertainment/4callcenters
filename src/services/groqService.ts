@@ -6,6 +6,13 @@ const groq = new Groq({
 });
 
 export async function generateSalesPitch(businessName: string, sector: string, city: string): Promise<string> {
+  const apiKey = process.env.GROQ_API_KEY;
+
+  if (!apiKey) {
+    console.error("GROQ_API_KEY is missing!");
+    return "API Anahtarı eksik. Lütfen Vercel ayarlarınızı kontrol edin.";
+  }
+
   try {
     const prompt = `
       Sen profesyonel bir medya satış danışmanısın.
@@ -34,21 +41,30 @@ export async function generateSalesPitch(businessName: string, sector: string, c
       Lütfen Türkçe yanıt ver.
     `;
 
-    const completion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      model: "mixtral-8x7b-32768",
-      temperature: 0.7,
-      max_tokens: 1024,
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messages: [{ role: "user", content: prompt }],
+        model: "mixtral-8x7b-32768",
+        temperature: 0.7,
+        max_tokens: 1024,
+      })
     });
 
-    return completion.choices[0]?.message?.content || "Satış metni oluşturulamadı.";
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Groq API Response Error:", data);
+      throw new Error(data.error?.message || "Bilinmeyen API Hatası");
+    }
+
+    return data.choices?.[0]?.message?.content || "Satış metni oluşturulamadı.";
   } catch (error) {
-    console.error("Groq API Error:", error);
-    return "Yapay zeka şu anda meşgul, lütfen daha sonra tekrar deneyin.";
+    console.error("Groq Fetch Error:", error);
+    return "Yapay zeka şu anda meşgul veya API bağlantısı başarısız, lütfen daha sonra tekrar deneyin.";
   }
 }
