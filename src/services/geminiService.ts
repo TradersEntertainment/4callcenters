@@ -192,17 +192,35 @@ export async function searchBusinesses(
   if (creativeFilter === 'multi-branch') finalQuery += " chain";
 
   try {
-    let url = `/api/places/textsearch?`;
-    if (pageToken) {
-      url += `pagetoken=${pageToken}`;
-    } else {
-      url += `query=${encodeURIComponent(finalQuery)}`;
+    let data: any;
+    let attempts = 0;
+    const maxAttempts = pageToken ? 3 : 1; // Retry only if using pagetoken
+
+    while (attempts < maxAttempts) {
+      let url = `/api/places/textsearch?`;
+      if (pageToken) {
+        url += `pagetoken=${pageToken}`;
+      } else {
+        url += `query=${encodeURIComponent(finalQuery)}`;
+      }
+
+      const response = await fetch(url);
+      data = await response.json();
+
+      if (data.status === 'INVALID_REQUEST' && pageToken) {
+        // Token might not be ready yet, wait and retry
+        attempts++;
+        if (attempts < maxAttempts) {
+          console.log(`Token not ready, waiting 2 seconds (attempt ${attempts}/${maxAttempts})...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
+      }
+      break; // Exit loop if successful or max attempts reached
     }
-    const response = await fetch(url);
-    const data = await response.json();
 
     if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      throw new Error(`Google Maps API Error: ${data.status} - ${data.error_message || 'Unknown error'}`);
+      throw new Error(`Google Maps API Error: ${data.status} - ${data.error_message || 'Bilinmeyen hata'}`);
     }
 
     const results = data.results || [];
