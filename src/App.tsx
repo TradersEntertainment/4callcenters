@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Building2, Phone, Loader2, AlertCircle, Mail, Globe, Users, ExternalLink, Smartphone, Instagram, Star, MessageSquare, Lightbulb, Menu, X, Filter, EyeOff, StickyNote, Save, Bell, Clock } from 'lucide-react';
+import { Search, MapPin, Building2, Phone, Loader2, AlertCircle, Mail, Globe, Users, ExternalLink, Smartphone, Instagram, Star, MessageSquare, Lightbulb, Menu, X, Filter, EyeOff, StickyNote, Save, Bell, Clock, Youtube, Trash2 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -128,6 +128,18 @@ export default function App() {
       delete next[name];
       return next;
     });
+  };
+
+  const handleResetData = () => {
+    if (confirm('Tüm kayıtlı notları, hatırlatıcıları ve gizlenen firmaları silmek istediğinize emin misiniz?')) {
+      setHiddenBusinesses([]);
+      setNotes({});
+      setReminders({});
+      localStorage.removeItem('hiddenBusinesses');
+      localStorage.removeItem('businessNotes');
+      localStorage.removeItem('businessReminders');
+      alert('Tüm veriler sıfırlandı.');
+    }
   };
 
   const filteredBusinesses = businesses.filter(b => {
@@ -797,18 +809,30 @@ export default function App() {
         {businesses.length > 0 && showResultsPanel && (
           <div className="fixed md:absolute inset-0 md:inset-auto md:top-0 md:right-0 z-[3000] w-full md:w-1/2 lg:w-[500px] h-full bg-white shadow-2xl border-l border-gray-200 flex flex-col animate-in slide-in-from-right-10 fade-in duration-300">
             <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
-                <div className="bg-green-100 text-green-700 px-2.5 py-0.5 rounded-md text-sm font-extrabold">
-                  {filteredBusinesses.length}
-                </div>
-                Bulunan Firmalar
-              </h3>
-              <button
-                onClick={() => setShowResultsPanel(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-200 rounded-full"
-              >
-                <X className="w-6 h-6" />
-              </button>
+              <div className="flex flex-col">
+                <h3 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
+                  <div className="bg-green-100 text-green-700 px-2.5 py-0.5 rounded-md text-sm font-extrabold">
+                    {filteredBusinesses.length}
+                  </div>
+                  Bulunan Firmalar
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleResetData}
+                  title="Tüm Verileri Sıfırla"
+                  className="text-gray-400 hover:text-red-500 transition-colors p-2 hover:bg-red-50 rounded-lg flex items-center gap-1 text-xs font-medium"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Sıfırla
+                </button>
+                <button
+                  onClick={() => setShowResultsPanel(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-200 rounded-full"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-4 bg-gray-50/50">
               {filteredBusinesses.map((business, idx) => (
@@ -867,8 +891,8 @@ export default function App() {
                                 if (confirm('Hatırlatıcıyı silmek istiyor musunuz?')) handleRemoveReminder(business.name);
                               }}
                               className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-md font-bold cursor-pointer transition-colors ${Date.now() > reminders[business.name]
-                                  ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                  : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
                                 }`}>
                               <Bell className={`w-3 h-3 ${Date.now() > reminders[business.name] ? 'animate-bounce' : ''}`} />
                               {Date.now() > reminders[business.name] ? 'Zamanı Geldi!' : 'Hatırlatıcı'}
@@ -898,23 +922,25 @@ export default function App() {
                         ))}
                       </div>
 
-                      <div className="flex gap-2 pt-3 border-t border-gray-100 mt-auto flex-wrap sm:flex-nowrap">
+                      {/* Action Buttons Row 1: CRM Actions */}
+                      <div className="flex gap-2 pt-3 border-t border-gray-100 mt-auto">
                         <button
                           onClick={() => handleGeneratePitch(business)}
                           disabled={pitchLoading === business.name}
-                          className="flex-1 min-w-[120px] bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold py-2 px-3 rounded-lg flex items-center justify-center transition-all shadow-md shadow-gray-900/10 whitespace-nowrap gap-1.5 disabled:opacity-70"
+                          className="flex-1 bg-gray-900 hover:bg-gray-800 text-white text-xs sm:text-sm font-bold py-2 px-3 rounded-lg flex items-center justify-center transition-all shadow-md shadow-gray-900/10 whitespace-nowrap gap-1.5 disabled:opacity-70"
                         >
                           {pitchLoading === business.name ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
                           ) : (
                             <Lightbulb className="w-4 h-4 text-yellow-400" />
                           )}
-                          Satış Metni
+                          <span className="hidden xs:inline">Satış Metni</span>
+                          <span className="xs:hidden">Metin</span>
                         </button>
 
                         <button
                           onClick={() => setNoteModal({ isOpen: true, businessName: business.name, initialNote: notes[business.name] || '' })}
-                          className="flex-1 min-w-[80px] bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 text-sm font-bold py-2 px-3 rounded-lg flex items-center justify-center transition-all whitespace-nowrap gap-1.5"
+                          className="flex-1 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 text-xs sm:text-sm font-bold py-2 px-3 rounded-lg flex items-center justify-center transition-all whitespace-nowrap gap-1.5"
                         >
                           <StickyNote className="w-4 h-4" />
                           Not Al
@@ -922,20 +948,46 @@ export default function App() {
 
                         <button
                           onClick={() => setReminderModal({ isOpen: true, businessName: business.name })}
-                          className="flex-1 min-w-[90px] bg-purple-50 border border-purple-200 hover:bg-purple-100 text-purple-700 text-sm font-bold py-2 px-3 rounded-lg flex items-center justify-center transition-all whitespace-nowrap gap-1.5"
+                          className="flex-1 bg-purple-50 border border-purple-200 hover:bg-purple-100 text-purple-700 text-xs sm:text-sm font-bold py-2 px-3 rounded-lg flex items-center justify-center transition-all whitespace-nowrap gap-1.5"
                         >
                           <Bell className="w-4 h-4" />
                           Hatırlat
                         </button>
+                      </div>
 
+                      {/* Action Buttons Row 2: External Links */}
+                      <div className="flex gap-2 mt-2 flex-wrap">
                         <a
                           href={`https://www.google.com/search?q=${encodeURIComponent(business.name + ' ' + city + ' instagram')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="w-[42px] flex-shrink-0 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-sm font-bold py-2 rounded-lg flex items-center justify-center transition-all shadow-md shadow-pink-500/20"
+                          className="flex-1 min-w-[40px] bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs font-bold py-2 rounded-lg flex items-center justify-center transition-all shadow-md shadow-pink-500/20"
                           title="Instagram Profilini Çıkar"
                         >
-                          <Instagram className="w-4 h-4" />
+                          <Instagram className="w-4 h-4 mr-1.5" />
+                          Instagram
+                        </a>
+
+                        <a
+                          href={`https://www.google.com/search?q=${encodeURIComponent(business.name + ' ' + city)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 min-w-[40px] bg-white border border-gray-200 hover:bg-gray-50 text-blue-600 text-xs font-bold py-2 rounded-lg flex items-center justify-center transition-all shadow-sm"
+                          title="Google'da Ara"
+                        >
+                          <Search className="w-4 h-4 mr-1.5" />
+                          Google
+                        </a>
+
+                        <a
+                          href={`https://www.youtube.com/results?search_query=${encodeURIComponent(business.name + ' ' + city)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 min-w-[40px] bg-white border border-gray-200 hover:bg-gray-50 text-red-600 text-xs font-bold py-2 rounded-lg flex items-center justify-center transition-all shadow-sm"
+                          title="Youtube'da Ara"
+                        >
+                          <Youtube className="w-4 h-4 mr-1.5" />
+                          Youtube
                         </a>
 
                         {business.mapsUri && (
@@ -943,10 +995,11 @@ export default function App() {
                             href={business.mapsUri}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="w-[42px] flex-shrink-0 bg-white border border-gray-200 hover:bg-gray-50 text-blue-500 py-2 rounded-lg flex items-center justify-center transition-colors shadow-sm"
+                            className="flex-1 min-w-[40px] bg-white border border-gray-200 hover:bg-gray-50 text-green-600 text-xs font-bold py-2 rounded-lg flex items-center justify-center transition-colors shadow-sm"
                             title="Haritada Ara"
                           >
-                            <MapPin className="w-4 h-4" />
+                            <MapPin className="w-4 h-4 mr-1.5" />
+                            Harita
                           </a>
                         )}
                       </div>
