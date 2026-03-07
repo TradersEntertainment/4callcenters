@@ -124,6 +124,12 @@ const SECTOR_IMAGES: Record<string, string[]> = {
     'https://images.unsplash.com/photo-1494412651409-ae1c40237c2d?w=500&q=80',
     'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=500&q=80'
   ],
+  'Muayene': [
+    'https://images.unsplash.com/photo-1629909613654-28705fe93bb4?w=500&q=80',
+    'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=500&q=80',
+    'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=500&q=80',
+    'https://images.unsplash.com/photo-1576091160550-217359f41f48?w=500&q=80'
+  ],
   'Genel': [
     'https://images.unsplash.com/photo-1497366216548-37526070297c?w=500&q=80',
     'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=500&q=80',
@@ -177,7 +183,13 @@ export async function searchBusinesses(
   pageToken: string = ''
 ): Promise<SearchResponse> {
   // Construct the search query
-  const sectorQuery = sectors.join(' OR ');
+  let sectorQuery = sectors.join(' OR ');
+
+  // Refine medical sector to exclude public/state entities
+  if (sectors.some(s => s.includes('Muayene') || s.includes('Klinik'))) {
+    sectorQuery = `("özel muayenehane" OR "özel klinik" OR "diş hekimi" OR "özel doktor") -hastane -devlet -eczane`;
+  }
+
   let locationQuery = "";
 
   if (country === 'Kıbrıs') {

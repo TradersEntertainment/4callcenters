@@ -25,7 +25,8 @@ const SECTOR_GROUPS = [
       'Restoran & Kafe',
       'Turizm & Otelcilik',
       'Otomotiv & Galeri',
-      'Organizasyon & Etkinlik'
+      'Organizasyon & Etkinlik',
+      'Özel Muayene & Klinik'
     ]
   },
   {
